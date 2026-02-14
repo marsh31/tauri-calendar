@@ -1,50 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
+type Event = {
+  id: number;
+  title: String;
+  start: String;
+  end: String;
+};
+
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
+
+  const [events, setEvents] = useState<Event[]>([]);
+  const [title,  setTitle]  = useState("");
+  const [start,  setStart]  = useState("2026-02-14T10:00");
+  const [end,    setEnd]    = useState("2026-02-14T11:00");
+
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     setGreetMsg(await invoke("greet", { name }));
   }
 
+  async function refresh() {
+    const list = await invoke<Event[]>("list_events");
+    setEvents(list);
+  }
+
+  async function add() {
+    const list = await invoke<Event[]>("add_event", { title, start, end });
+    setEvents(list);
+    setTitle("");
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div style={{ padding: 16, fontFamily: "sans-serif" }}>
+      <h1>tcal</h1>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+        <label>
+          Title
+          <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%" }} />
+        </label>
+
+        <label>
+          Start
+          <input value={start} onChange={(e) => setStart(e.target.value)} style={{ width: "100%" }} />
+        </label>
+
+        <label>
+          End
+          <input value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: "100%" }} />
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={add} disabled={!title.trim()}>
+            Add
+          </button>
+          <button onClick={refresh}>Refresh</button>
+        </div>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      <hr style={{ margin: "16px 0" }} />
+
+      <h2>Events</h2>
+      <ul>
+        {events.map((e) => (
+          <li key={e.id}>
+            <b>{e.title}</b> ({e.start} → {e.end})
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
