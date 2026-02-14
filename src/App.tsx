@@ -27,6 +27,11 @@ function App() {
     setTitle("");
   }
 
+  async function del(id: number) {
+    const list = await invoke<Event[]>("delete_event", { id });
+    setEvents(list);
+  }
+
   useEffect(() => {
     refresh();
   }, []);
@@ -64,8 +69,11 @@ function App() {
       <h2>Events</h2>
       <ul>
         {events.map((e) => (
-          <li key={e.id}>
-            <b>{e.title}</b> ({e.start} → {e.end})
+          <li key={e.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span>
+              <b>{e.title}</b> ({e.start} → {e.end})
+            </span>
+            <button onClick={() => del(e.id)}>Delete</button>
           </li>
         ))}
       </ul>
