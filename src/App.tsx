@@ -73,11 +73,18 @@ function App() {
 
   const grid = useMemo(() => buildMonthGrid(viewMonth), [viewMonth]);
 
-  const countsByDay = useMemo(() => {
-    const map = new Map<string, number>();
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, Event[]>();
     for (const e of events) {
       const day = e.start.slice(0, 10);
-      map.set(day, (map.get(day) ?? 0) + 1);
+      const arr = map.get(day) ?? [];
+      arr.push(e);
+      map.set(day, arr);
+    }
+
+    for (const [day, arr] of map.entries()) {
+      arr.sort((a, b) => a.start.localeCompare(b.start));
+      map.set(day, arr);
     }
 
     return map;
@@ -127,16 +134,20 @@ function App() {
         {grid.map((d) => {
           const inMonth = d.getMonth() === viewMon && d.getFullYear() === viewYear;
           const dayKey = ymd(d);
-          const count = countsByDay.get(dayKey) ?? 0;
+
+          const dayEvents = eventsByDay.get(dayKey) ?? [];
+          const visible = dayEvents.slice(0, 2);
+          const rest = dayEvents.length - visible.length;
 
           return (
+
             <button
               key={dayKey}
               onClick={() => pickDay(d)}
               style={{
                 textAlign: "left",
                 padding: 10,
-                minHeight: 64,
+                minHeight: 128,
                 borderRadius: 8,
                 border: "1px solid #ddd",
                 background: inMonth ? "white" : "#f6f6f6",
@@ -147,8 +158,32 @@ function App() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <div style={{ fontWeight: 700 }}>{d.getDate()}</div>
-                {count > 0 && (
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>{count} event</div>
+                {dayEvents.length > 0 && (
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>{dayEvents.length}</div>
+                )}
+              </div>
+
+              <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                {visible.map((e) => (
+                  <div
+                    key={e.id}
+                    style={{
+                      fontSize: 12,
+                      border: "1px solid #eee",
+                      borderRadius: 6,
+                      padding: "2px 6px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={`${e.title} (${e.start} → ${e.end})`}
+                  >
+                    {e.title}
+                  </div>
+                ))}
+
+                {rest > 0 && (
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>+{rest}</div>
                 )}
               </div>
             </button>
