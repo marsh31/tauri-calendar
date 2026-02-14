@@ -11,19 +11,10 @@ type Event = {
 };
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
   const [events, setEvents] = useState<Event[]>([]);
   const [title,  setTitle]  = useState("");
   const [start,  setStart]  = useState("2026-02-14T10:00");
   const [end,    setEnd]    = useState("2026-02-14T11:00");
-
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
 
   async function refresh() {
     const list = await invoke<Event[]>("list_events");

@@ -44,11 +44,6 @@ fn add_event(
     events.clone()
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -57,7 +52,7 @@ pub fn run() {
             next_id: Mutex::new(1),
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, list_events, add_event])
+        .invoke_handler(tauri::generate_handler![list_events, add_event])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
