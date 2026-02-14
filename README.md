@@ -1,7 +1,39 @@
-# Tauri + React + Typescript
+# tcal (Learning Project)
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+This repository is a personal learning project for exploring and practicing:
+- Tauri
+- React
+- TypeScript
 
-## Recommended IDE Setup
+The goal is to build a simple Calendar application while learning how these technologies work together.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+**⚠️ Disclaimer**  
+This project guarantees only minimum working functionality.
+
+Since this is a personal experimental repository, 
+breaking changes may be introduced at any time without prior notice, 
+depending on the author's learning progress or interests.  
+Please do not use this project in production environments.
+
+
+## Getting started
+
+Clone the repository:  
+```sh
+git clone https://github.com/marsh31/tauri-calendar
+```
+
+Install dependencies:  
+
+```sh
+npm install
+```
+
+Start the development environment:  
+
+```sh
+npm run tauri dev
+# or
+npm run tauri:dev
+```
+
