@@ -40,6 +40,12 @@ function buildMonthGrid(view: Date): Date[] {
 }
 
 function App() {
+
+  const [selectedDay, setSelectedDay] = useState<string> (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  });
+
   const [events, setEvents] = useState<Event[]>([]);
 
   const [viewMonth, setViewMonth] = useState<Date>(() => {
@@ -90,6 +96,11 @@ function App() {
     return map;
   }, [events]);
 
+  const selectedEvents = useMemo(() => {
+    const arr = eventsByDay.get(selectedDay) ?? [];
+    return arr;
+  });
+
   const viewYear = viewMonth.getFullYear();
   const viewMon  = viewMonth.getMonth();
 
@@ -105,6 +116,7 @@ function App() {
 
   function pickDay(d: Date) {
     const day = ymd(d);
+    setSelectedDay(day);
     setStart(`${day}T10:00`);
     setEnd(`${day}T11:00`);
   }
@@ -123,113 +135,144 @@ function App() {
         </div>
       </div>
 
-      {/* カレンダー */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-        {dow.map((d) => (
-          <div key={d} style={{ fontWeight: 700, padding: "6px 8px", opacity: 0.7 }}>
-            {d}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
+        {/* Left: カレンダー */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          {dow.map((d) => (
+            <div key={d} style={{ fontWeight: 700, padding: "6px 8px", opacity: 0.7 }}>
+              {d}
+            </div>
+          ))}
+
+          {grid.map((d) => {
+            const inMonth = d.getMonth() === viewMon && d.getFullYear() === viewYear;
+            const dayKey = ymd(d);
+
+            const dayEvents = eventsByDay.get(dayKey) ?? [];
+            const visible = dayEvents.slice(0, 2);
+            const rest = dayEvents.length - visible.length;
+
+            return (
+
+              <button
+                key={dayKey}
+                onClick={() => pickDay(d)}
+                style={{
+                  textAlign: "left",
+                  padding: 10,
+                  minHeight: 128,
+                  borderRadius: 8,
+                  border: "1px solid #ddd",
+                  background: inMonth ? "white" : "#f6f6f6",
+                  opacity: inMonth ? 1 : 0.6,
+                  cursor: "pointer",
+                }}
+                title={`Pick ${dayKey}`}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div style={{ fontWeight: 700 }}>{d.getDate()}</div>
+                  {dayEvents.length > 0 && (
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>{dayEvents.length}</div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                  {visible.map((e) => (
+                    <div
+                      key={e.id}
+                      style={{
+                        fontSize: 12,
+                        border: "1px solid #eee",
+                        borderRadius: 6,
+                        padding: "2px 6px",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`${e.title} (${e.start} → ${e.end})`}
+                    >
+                      {e.title}
+                    </div>
+                  ))}
+
+                  {rest > 0 && (
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>+{rest}</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* right: side panel */}
+        <div 
+          style={{
+            border: "1px solid #ddd",
+            borderRadius: 12,
+            padding: 12,
+            position: "sticky",
+            top: 12,
+            background: "white",
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>
+            {selectedDay}
           </div>
-        ))}
 
-        {grid.map((d) => {
-          const inMonth = d.getMonth() === viewMon && d.getFullYear() === viewYear;
-          const dayKey = ymd(d);
-
-          const dayEvents = eventsByDay.get(dayKey) ?? [];
-          const visible = dayEvents.slice(0, 2);
-          const rest = dayEvents.length - visible.length;
-
-          return (
-
-            <button
-              key={dayKey}
-              onClick={() => pickDay(d)}
-              style={{
-                textAlign: "left",
-                padding: 10,
-                minHeight: 128,
-                borderRadius: 8,
-                border: "1px solid #ddd",
-                background: inMonth ? "white" : "#f6f6f6",
-                opacity: inMonth ? 1 : 0.6,
-                cursor: "pointer",
-              }}
-              title={`Pick ${dayKey}`}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontWeight: 700 }}>{d.getDate()}</div>
-                {dayEvents.length > 0 && (
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>{dayEvents.length}</div>
-                )}
-              </div>
-
-              <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                {visible.map((e) => (
-                  <div
-                    key={e.id}
-                    style={{
-                      fontSize: 12,
-                      border: "1px solid #eee",
-                      borderRadius: 6,
-                      padding: "2px 6px",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                    title={`${e.title} (${e.start} → ${e.end})`}
-                  >
-                    {e.title}
+          <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+            {selectedEvents.length === 0 ? (
+              <div style={{ opacity: 0.7 }}>No events</div>
+            ) : (
+              selectedEvents.map((e) => (
+                <div
+                  key={e.id}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 12,
+                    padding: 12,
+                    position: "sticky",
+                    top: 12,
+                    background: "white",
+                  }}
+                >
+                  <div style={{ fontWeight: 800 }}>{e.title}</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    {e.start.slice(11,16)} → {e.end.slice(11,16)}
                   </div>
-                ))}
+                  <button onClick={() => del(e.id)} style={{ justifySelf: "start" }}>
+                    Delete
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
 
-                {rest > 0 && (
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>+{rest}</div>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+          <hr style={{ margin: "12px 0" }} />
 
-      <hr style={{ margin: "16px 0" }} />
+          {/* 追加フォーム */}
+          <div style={{ display: "grid", gap: 8 }}>
+            <label>
+              Title
+              <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+            </label>
+            <label>
+              Start
+              <input value={start} onChange={(e) => setStart(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+            </label>
+            <label>
+              End
+              <input value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+            </label>
 
-      {/* 追加フォーム */}
-      <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
-        <label>
-          Title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%" }} />
-        </label>
-        <label>
-          Start
-          <input value={start} onChange={(e) => setStart(e.target.value)} style={{ width: "100%" }} />
-        </label>
-        <label>
-          End
-          <input value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: "100%" }} />
-        </label>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={add} disabled={!title.trim()}>
-            Add
-          </button>
-          <button onClick={refresh}>Refresh</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={add} disabled={!title.trim()}>
+                Add
+              </button>
+              <button onClick={refresh}>Refresh</button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <hr style={{ margin: "16px 0" }} />
-
-      {/* 一覧（デバッグ用に残す） */}
-      <h2>Events</h2>
-      <ul>
-        {events.map((e) => (
-          <li key={e.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span>
-              <b>{e.title}</b> ({e.start} → {e.end})
-            </span>
-            <button onClick={() => del(e.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
