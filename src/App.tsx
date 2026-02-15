@@ -39,6 +39,11 @@ function buildMonthGrid(view: Date): Date[] {
   return days;
 }
 
+function toDatetimeLocal(v: string) {
+  if (v.length >= 16) return v.slice(0, 16);
+  return v;
+}
+
 function App() {
 
   const [selectedDay, setSelectedDay] = useState<string> (() => {
@@ -59,31 +64,38 @@ function App() {
   const [start,  setStart]  = useState("2026-02-14T10:00");
   const [end,    setEnd]    = useState("2026-02-14T11:00");
 
+  const [error,  setError]  = useState<string, null>(null);
+
   async function refresh() {
     const list = await invoke<Event[]>("list_events");
     setEvents(list);
   }
 
   async function save() {
-    if (!title.trim()) return;
+    setError(null);
 
-    if (editingId === null) {
-      const list = await invoke<Event[]>("add_event", { title, start, end });
+    try {
+      if (editingId === null) {
+        const list = await invoke<Event[]>("add_event", { title, start, end });
+        setEvents(list);
+        setTitle("");
+        return ;
+      }
+
+      const list = await invoke<Event[]>("update_event", {
+        id: editingId,
+        title,
+        start,
+        end,
+      });
+
       setEvents(list);
+      setEditingId(null);
       setTitle("");
-      return ;
+
+    } catch (e) {
+      setError(String(e));
     }
-
-    const list = await invoke<Event[]>("update_event", {
-      id: editingId,
-      title,
-      start,
-      end,
-    });
-
-    setEvents(list);
-    setEditingId(null);
-    setTitle("");
   }
 
   async function del(id: number) {
@@ -94,8 +106,8 @@ function App() {
   function beginEdit(e: Event) {
     setEditingId(e.id);
     setTitle(e.title);
-    setStart(e.start);
-    setEnd(e.end);
+    setStart(toDatetimeLocal(e.start));
+    setEnd(toDatetimeLocal(e.end));
   }
 
   function cancelEdit() {
@@ -150,6 +162,8 @@ function App() {
     setStart(`${day}T10:00`);
     setEnd(`${day}T11:00`);
   }
+
+  // const isValidRange = start !== "" && end !== "" && start <= end;
 
   return (
     <div style={{ padding: 16, fontFamily: "sans-serif", maxWidth: 980 }}>
@@ -287,17 +301,32 @@ function App() {
 
           {/* 追加フォーム */}
           <div style={{ display: "grid", gap: 8 }}>
+            {error && (
+              <div style={{ borderr: "1px solid #f3c", padding: 8, borderRadius: 8, marginBottom: 8 }}>
+                {error}
+              </div>
+            )}
             <label>
               Title
               <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
             </label>
             <label>
               Start
-              <input value={start} onChange={(e) => setStart(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+              <input 
+                type="datetime-local"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
             </label>
             <label>
               End
-              <input value={end} onChange={(e) => setEnd(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+              <input
+                type="datetime-local"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
             </label>
 
             <div style={{ display: "flex", gap: 8 }}>

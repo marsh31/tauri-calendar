@@ -44,6 +44,23 @@ fn load_from_file(file_path: &PathBuf) -> Persisted {
     })
 }
 
+fn validate_event_fields(title: &String, start: &String, end: &String) -> Result<(), String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("title must not be empty".into());
+    }
+
+    if start.len() < 16 || end.len() < 16 {
+        return Err("start/end format must be like YYYY-MM-DDTHH:mm".into());
+    }
+
+    if start > end {
+        return Err("end must be after start".into());
+    }
+
+    Ok(())
+}
+
 fn save_to_file(file_path: &PathBuf, next_id: u64, events: &Vec<Event>) -> Result<(), String> {
     let data = Persisted {
         next_id,
@@ -61,6 +78,8 @@ fn add_event(
     end: String,
     state: tauri::State<AppState>,
 ) -> Result<Vec<Event>, String> {
+    validate_event_fields(&title, &start, &end)?;
+
     let mut events = state.events.lock().unwrap();
     let mut next_id = state.next_id.lock().unwrap();
 
@@ -104,6 +123,7 @@ fn update_event(
     end: String,
     state: tauri::State<AppState>,
 ) -> Result<Vec<Event>, String> {
+    validate_event_fields(&title, &start, &end)?;
     let mut events = state.events.lock().unwrap();
     let next_id = *state.next_id.lock().unwrap();
 
