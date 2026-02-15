@@ -46,6 +46,8 @@ function App() {
     return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+
   const [events, setEvents] = useState<Event[]>([]);
 
   const [viewMonth, setViewMonth] = useState<Date>(() => {
@@ -62,15 +64,43 @@ function App() {
     setEvents(list);
   }
 
-  async function add() {
-    const list = await invoke<Event[]>("add_event", { title, start, end });
+  async function save() {
+    if (!title.trim()) return;
+
+    if (editingId === null) {
+      const list = await invoke<Event[]>("add_event", { title, start, end });
+      setEvents(list);
+      setTitle("");
+      return ;
+    }
+
+    const list = await invoke<Event[]>("update_event", {
+      id: editingId,
+      title,
+      start,
+      end,
+    });
+
     setEvents(list);
+    setEditingId(null);
     setTitle("");
   }
 
   async function del(id: number) {
     const list = await invoke<Event[]>("delete_event", { id });
     setEvents(list);
+  }
+
+  function beginEdit(e: Event) {
+    setEditingId(e.id);
+    setTitle(e.title);
+    setStart(e.start);
+    setEnd(e.end);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
   }
 
   useEffect(() => {
@@ -239,9 +269,15 @@ function App() {
                   <div style={{ fontSize: 12, opacity: 0.8 }}>
                     {e.start.slice(11,16)} → {e.end.slice(11,16)}
                   </div>
-                  <button onClick={() => del(e.id)} style={{ justifySelf: "start" }}>
-                    Delete
-                  </button>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => beginEdit(e)} style={{ justifySelf: "start" }}>
+                      Edit
+                    </button>
+                    <button onClick={() => del(e.id)} style={{ justifySelf: "start" }}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -265,9 +301,16 @@ function App() {
             </label>
 
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={add} disabled={!title.trim()}>
-                Add
+              <button onClick={save} disabled={!title.trim()}>
+                {editingId === null ? "Add" : "Save"}
               </button>
+
+              {editingId !== null && (
+                <button onClick={cancelEdit}>
+                  Cancel
+                </button>
+              )}
+
               <button onClick={refresh}>Refresh</button>
             </div>
           </div>

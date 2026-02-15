@@ -96,6 +96,36 @@ fn delete_event(id: u64, state: tauri::State<AppState>) -> Result<Vec<Event>, St
     Ok(events.clone())
 }
 
+#[tauri::command]
+fn update_event(
+    id: u64,
+    title: String,
+    start: String,
+    end: String,
+    state: tauri::State<AppState>,
+) -> Result<Vec<Event>, String> {
+    let mut events = state.events.lock().unwrap();
+    let next_id = *state.next_id.lock().unwrap();
+
+    let mut found = false;
+    for e in events.iter_mut() {
+        if e.id == id {
+            e.title = title;
+            e.start = start;
+            e.end = end;
+            found = true;
+            break;
+        }
+    }
+
+    if !found {
+        return Err(format!("event not found: {id}"));
+    }
+
+    save_to_file(&state.file_path, next_id, &events)?;
+    Ok(events.clone())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -123,7 +153,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_events,
             add_event,
-            delete_event
+            delete_event,
+            update_event
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
