@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useReducer } from "react";
 import type { Event } from "./types";
 import { addEvent, deleteEvent, listEvents, updateEvent } from "../api/events";
 
@@ -15,21 +15,116 @@ function toDatetimeLocal(v: string) {
   return v;
 }
 
+type UiState = {
+  viewMonth: Date;
+  selectedDay: string;
+
+  title: string;
+  start: string;
+  end: string;
+
+  editingId: number | null;
+  error: string | null;
+}
+
+type UiAction = 
+  | { type: "prevMonth" }
+  | { type: "nextMonth" }
+  | { type: "pickDay"; day: string }
+  | { type: "setTitle"; value: string }
+  | { type: "setStart"; value: string }
+  | { type: "setEnd"; value: string }
+  | { type: "beginEdit"; event: Event }
+  | { type: "cancelEdit" }
+  | { type: "clearError" }
+  | { type: "setError"; error: string }
+  | { type: "afterSaveSuccess" };
+
+function initUiState(): UiState {
+  const now = new Date();
+  const viewMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const day = ymd(now);
+
+  return {
+    viewMonth,
+    selectedDay: day,
+    title: "",
+    start: `${day}T10:00`,
+    end: `${day}T11:00`,
+    editingId: null,
+    error: null,
+  }
+}
+
+function uiReducer(state: UiState, action: UiAction): UiState {
+  switch (action.type) {
+    case "prevMonth":
+      return { ...state, viewMonth: new Date(state.viewMonth.getFullYear(), state.viewMonth.getMonth() - 1, 1) };
+
+    case "nextMonth":
+      return { ...state, viewMonth: new Date(state.viewMonth.getFullYear(), state.viewMonth.getMonth() + 1, 1) };
+
+    case "pickDay": {
+      const day = action.day;
+      return {
+        ...state,
+        selectedDay: day,
+        start: `${day}T10:00`,
+        end: `${day}T11:00`,
+        editingId: null,
+        error: null,
+      };
+    }
+
+    case "setTitle":
+      return { ...state, title: action.value };
+
+    case "setStart":
+      return { ...state, start: action.value };
+
+    case "setEnd":
+      return { ...state, end: action.value };
+
+    case "beginEdit":
+      return {
+        ...state,
+        editingId: action.event.id,
+        title: action.event.title,
+        start: toDatetimeLocal(action.event.start),
+        end: toDatetimeLocal(action.event.end),
+        error: null,
+      };
+
+    case "cancelEdit":
+      return {
+        ...state,
+        editingId: null,
+        title: "",
+        start: `${state.selectedDay}T10:00`,
+        end: `${state.selectedDay}T11:00`,
+        error: null,
+      };
+
+    case "clearError":
+      return { ...state, error: null };
+
+    case "setError":
+      return { ...state, error: action.error };
+
+
+    case "afterSaveSuccess":
+      return { ...state, editingId: null, title: "", error: null };
+
+    default: {
+      const _exhaustive: never = action;
+      return state;
+    }
+  }
+}
+
 export function useCalendar() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [viewMonth, setViewMonth] = useState<Date>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-
-  const [selectedDay, setSelectedDay] = useState<string> (() => ymd(new Date()));
-
-  const [title,  setTitle]  = useState("");
-  const [start,  setStart]  = useState("${selectedDay}T10:00");
-  const [end,    setEnd]    = useState("${selectedDay}T11:00");
-
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [error,  setError]  = useState<string, null>(null);
+  const [ui, dispatch] = useReducer(uiReducer, undefined, initUiState);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, Event[]>();
@@ -49,77 +144,53 @@ export function useCalendar() {
   }, [events]);
 
   const selectedEvents = useMemo(() => {
-    const arr = eventsByDay.get(selectedDay) ?? [];
+    const arr = eventsByDay.get(ui.selectedDay) ?? [];
     return arr;
-  }, [eventsByDay, selectedDay]);
+  }, [eventsByDay, ui.selectedDay]);
 
   async function refresh() {
-    setError(null);
+    dispatch({ type: "clearError" });
     try {
       setEvents(await listEvents());
     } catch (e) {
-      setError(String(e));
+      dispatch({ type: "setError", error: String(e) });
     }
   }
 
-  function prevMonth() {
-    setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  }
-
-  function nextMonth() {
-    setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
-  }
-
-  function pickDay(d: Date) {
-    const day = ymd(d);
-    setSelectedDay(day);
-    setStart(`${day}T10:00`);
-    setEnd(`${day}T11:00`);
-    setError(null);
-  }
-
-  function beginEdit(e: Event) {
-    setEditingId(e.id);
-    setTitle(e.title);
-    setStart(toDatetimeLocal(e.start));
-    setEnd(toDatetimeLocal(e.end));
-    setError(null);
-  }
-
   async function del(id: number) {
-    setError(null);
-
+    dispatch({ type: "clearError" });
     try {
       setEvents(await deleteEvent({ id }));
     } catch (e) {
-      setError(String(e));
+      dispatch({ type: "setError", error: String(e) });
     }
   }
 
   async function save() {
-    setError(null);
+    dispatch({ type: "clearError" });
     try {
-      if (editingId === null) {
-        setEvents(await addEvent({ title, start, end }));
-        setTitle("");
+      if (ui.editingId === null) {
+        setEvents(await addEvent({ 
+          title: ui.title,
+          start: ui.start,
+          end: ui.end 
+        }));
+        dispatch({ type: "afterSaveSuccess" });
         return ;
       }
 
-      setEvents(await updateEvent({ id: editingId, title, start, end }));
+      setEvents(await updateEvent({
+        id: ui.editingId,
+        title: ui.title,
+        start: ui.start,
+        end: ui.end
+      }));
       setEditingId(null);
-      setTitle("");
+      dispatch({ type: "afterSaveSuccess" });
 
     } catch (e) {
-      setError(String(e));
+      dispatch({ type: "setError", error: String(e) });
     }
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setTitle("");
-    setStart(`${selectedDay}T10:00`);
-    setEnd(`${selectedDay}T11:00`);
-    setError(null);
   }
 
   useEffect(() => {
@@ -130,28 +201,31 @@ export function useCalendar() {
     // state
     state: {
       events,
-      viewMonth,
-      selectedDay,
+      viewMonth: ui.viewMonth,
+      selectedDay: ui.selectedDay,
       selectedEvents,
-      title,
-      start,
-      end,
-      editingId,
-      error,
+
+      title: ui.title,
+      start: ui.start,
+      end: ui.end,
+
+      editingId: ui.editingId,
+      error: ui.error,
     },
 
     actions: {
-      setTitle,
-      setStart,
-      setEnd,
+      prevMonth: () => dispatch({ type: "prevMonth" }),
+      nextMonth: () => dispatch({ type: "nextMonth" }),
+      pickDay: (day: string) => dispatch({ type: "pickDay", day }),
+      setTitle: (s: string) => dispatch({ type: "setTitle", value: s}),
+      setStart: (s: string) => dispatch({ type: "setStart", value: s}),
+      setEnd: (s: string) => dispatch({ type: "setEnd", value: s }),
+      beginEdit: (v: Event) => dispatch({ type: "beginEdit", value: v }),
+      cancelEdit: () => dispatch({ type: "cancelEdit" }),
+
       refresh,
-      prevMonth,
-      nextMonth,
-      pickDay,
-      beginEdit,
       del,
       save,
-      cancelEdit,
     },
   };
 }

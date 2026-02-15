@@ -81,7 +81,7 @@ export function CalendarGrid(props: {
 
           <button
             key={dayKey}
-            onClick={() => onPickDay(d)}
+            onClick={() => onPickDay(dayKey)}
             style={{
               textAlign: "left",
               padding: 10,
