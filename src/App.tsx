@@ -12,16 +12,16 @@ function ymLabel(d: Date) {
 }
 
 function App() {
-  const cal = useCalendar();
+  const { state, actions} = useCalendar();
   return (
     <div style={{ padding: 16, fontFamily: "sans-serif", maxWidth: 980 }}>
       <h1>tcal</h1>
 
       {/* 月ナビ */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <button onClick={cal.prevMonth}>◀</button>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{ymLabel(cal.viewMonth)}</div>
-        <button onClick={cal.nextMonth}>▶</button>
+        <button onClick={actions.prevMonth}>◀</button>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>{ymLabel(state.viewMonth)}</div>
+        <button onClick={actions.nextMonth}>▶</button>
         <div style={{ marginLeft: "auto", opacity: 0.7 }}>
           stored: ~/.local/share/com.marsh.tcal/events.json
         </div>
@@ -30,29 +30,29 @@ function App() {
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
         {/* Left: カレンダー */}
         <CalendarGrid
-          viewMonth={cal.viewMonth}
-          events={cal.events}
-          selectedDay={cal.selectedDay}
-          onPickDay={cal.pickDay}
+          viewMonth={state.viewMonth}
+          events={state.events}
+          selectedDay={state.selectedDay}
+          onPickDay={actions.pickDay}
         />
 
         {/* right: side panel */}
         <SidePanel
-          selectedDay={cal.selectedDay}
-          events={cal.selectedEvents}
-          title={cal.title}
-          start={cal.start}
-          end={cal.end}
-          editingId={cal.editingId}
-          error={cal.error}
-          onChangeTitle={cal.setTitle}
-          onChangeStart={cal.setStart}
-          onChangeEnd={cal.setEnd}
-          onBeginEdit={cal.beginEdit}
-          onDelete={cal.del}
-          onSave={cal.save}
-          onCancelEdit={cal.cancelEdit}
-          onRefresh={cal.refresh}
+          selectedDay={state.selectedDay}
+          events={state.selectedEvents}
+          title={state.title}
+          start={state.start}
+          end={state.end}
+          editingId={state.editingId}
+          error={state.error}
+          onChangeTitle={actions.setTitle}
+          onChangeStart={actions.setStart}
+          onChangeEnd={actions.setEnd}
+          onBeginEdit={actions.beginEdit}
+          onDelete={actions.del}
+          onSave={actions.save}
+          onCancelEdit={actions.cancelEdit}
+          onRefresh={actions.refresh}
         />
       </div>
     </div>

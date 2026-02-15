@@ -105,7 +105,7 @@ export function useCalendar() {
         return ;
       }
 
-      setEvents(await updateEvent({ id, title, start, end }));
+      setEvents(await updateEvent({ id: editingId, title, start, end }));
       setEditingId(null);
       setTitle("");
 
@@ -117,8 +117,8 @@ export function useCalendar() {
   function cancelEdit() {
     setEditingId(null);
     setTitle("");
-    setStart(`${day}T10:00`);
-    setEnd(`${day}T11:00`);
+    setStart(`${selectedDay}T10:00`);
+    setEnd(`${selectedDay}T11:00`);
     setError(null);
   }
 
@@ -128,30 +128,31 @@ export function useCalendar() {
 
   return {
     // state
-    events,
-    viewMonth,
-    selectedDay,
-    selectedEvents,
-    title,
-    start,
-    end,
-    editingId,
-    error,
+    state: {
+      events,
+      viewMonth,
+      selectedDay,
+      selectedEvents,
+      title,
+      start,
+      end,
+      editingId,
+      error,
+    },
 
-    // setters
-    setTitle,
-    setStart,
-    setEnd,
-
-    // actions
-    refresh,
-    prevMonth,
-    nextMonth,
-    pickDay,
-    beginEdit,
-    del,
-    save,
-    cancelEdit,
+    actions: {
+      setTitle,
+      setStart,
+      setEnd,
+      refresh,
+      prevMonth,
+      nextMonth,
+      pickDay,
+      beginEdit,
+      del,
+      save,
+      cancelEdit,
+    },
   };
 }
 
