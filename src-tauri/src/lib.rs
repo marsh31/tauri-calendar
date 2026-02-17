@@ -1,6 +1,4 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-//
-
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, sync::Mutex};
 use tauri::Manager;
@@ -59,6 +57,21 @@ fn load_from_file(file_path: &PathBuf) -> Persisted {
     })
 }
 
+fn parse_dt(field: &str, s: &str) -> Result<NaiveDateTime, ValidationError> {
+    let formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"];
+    for fmt in formats {
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, fmt) {
+            return Ok(dt);
+        }
+    }
+
+    Err(v_err(
+        "format",
+        Some(field),
+        "DateTime must be like YYYY-MM-DDTHH:mm",
+    ))
+}
+
 fn validate_event_fields(
     title: &String,
     start: &String,
@@ -69,23 +82,10 @@ fn validate_event_fields(
         return Err(v_err("required", Some("title"), "title is required"));
     }
 
-    if start.len() < 16 {
-        return Err(v_err(
-            "format",
-            Some("start"),
-            "Start format must be like YYYY-MM-DDTHH:mm",
-        ));
-    }
+    let start_dt = parse_dt("start", start)?;
+    let end_dt = parse_dt("end", end)?;
 
-    if end.len() < 16 {
-        return Err(v_err(
-            "format",
-            Some("end"),
-            "End format must be like YYYY-MM-DDTHH:mm",
-        ));
-    }
-
-    if start > end {
+    if start_dt > end_dt {
         return Err(v_err("range", Some("end"), "End must be after Start"));
     }
 

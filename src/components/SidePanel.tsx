@@ -40,7 +40,6 @@ export function SidePanel(props: {
     onRefresh,
   } = props;
 
-  const isValidRange = start !== "" && end !== "" && start <= end;
   const titleError = error?.op === "save" && error?.field === "title";
   const startError = error?.op === "save" && error?.field === "start";
   const endError = error?.op === "save" && error?.field === "end";
@@ -158,7 +157,7 @@ export function SidePanel(props: {
         </label>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onSave} disabled={loading /* || !title.trim() || !isValidRange */}>
+          <button onClick={onSave} disabled={loading}>
             {editingId === null ? "Add" : "Save"}
           </button>
 
