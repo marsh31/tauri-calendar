@@ -6,4 +6,9 @@ export type Event = {
   end: String;
 };
 
+export type ValidationError = {
+  code: string;
+  field?: "title" | "start" | "end";
+  message: string;
+};
 

@@ -43,6 +43,7 @@ function App() {
           title={state.title}
           start={state.start}
           end={state.end}
+          loading={state.loading}
           editingId={state.editingId}
           error={state.error}
           onChangeTitle={actions.setTitle}

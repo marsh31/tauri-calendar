@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useReducer } from "react";
-import type { Event } from "./types";
+import type { Event, ValidationError } from "./types";
 import { addEvent, deleteEvent, listEvents, updateEvent } from "../api/events";
 
 function pad2(n: number) {
@@ -15,7 +15,22 @@ function toDatetimeLocal(v: string) {
   return v;
 }
 
+type Op = "refresh" | "save" | "delete";
+
+type AppError = {
+  op: Op;
+  message: string;
+  field?: "title" | "start" | "end";
+  code?: string;
+};
+
 type UiState = {
+  // data
+  events: Event[];
+  loading: boolean;
+  error: AppError | null;
+
+  // ui
   viewMonth: Date;
   selectedDay: string;
 
@@ -24,7 +39,6 @@ type UiState = {
   end: string;
 
   editingId: number | null;
-  error: string | null;
 }
 
 type UiAction = 
@@ -36,27 +50,53 @@ type UiAction =
   | { type: "setEnd"; value: string }
   | { type: "beginEdit"; event: Event }
   | { type: "cancelEdit" }
-  | { type: "clearError" }
-  | { type: "setError"; error: string }
-  | { type: "afterSaveSuccess" };
+  | { type: "afterSaveSuccess" }
+  | { type: "opStart"; op: Op }
+  | { type: "opError"; op: Op; message: string; field?: "title" | "start" | "end"; code?: string }
+  | { type: "opSuccess"; op: Op; events: Event[] };
 
-function initUiState(): UiState {
+function parseValidationError(raw: unknown): ValidationError | null {
+  const s = String(raw);
+
+  const idx = s.lastIndexOf("{");
+  if (idx === -1) return null;
+
+  const maybeJson = s.slice(idx);
+  try {
+    const obj = JSON.parse(maybeJson);
+    if (obj && typeof obj.message === "string" && typeof obj.code === "string") {
+      return obj as ValidationError;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+
+function initState(): UiState {
   const now = new Date();
   const viewMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const day = ymd(now);
 
   return {
+    events: [],
+    loading: false,
+    error: null,
+
     viewMonth,
     selectedDay: day,
+
     title: "",
     start: `${day}T10:00`,
     end: `${day}T11:00`,
+
     editingId: null,
-    error: null,
   }
 }
 
-function uiReducer(state: UiState, action: UiAction): UiState {
+function reducer(state: UiState, action: UiAction): UiState {
   switch (action.type) {
     case "prevMonth":
       return { ...state, viewMonth: new Date(state.viewMonth.getFullYear(), state.viewMonth.getMonth() - 1, 1) };
@@ -69,6 +109,7 @@ function uiReducer(state: UiState, action: UiAction): UiState {
       return {
         ...state,
         selectedDay: day,
+        title: "",
         start: `${day}T10:00`,
         end: `${day}T11:00`,
         editingId: null,
@@ -105,15 +146,17 @@ function uiReducer(state: UiState, action: UiAction): UiState {
         error: null,
       };
 
-    case "clearError":
-      return { ...state, error: null };
-
-    case "setError":
-      return { ...state, error: action.error };
-
-
     case "afterSaveSuccess":
       return { ...state, editingId: null, title: "", error: null };
+
+    case "opStart":
+      return { ...state, loading: true, error: null };
+
+    case "opError":
+      return { ...state, loading: false, error: { op: action.op, message: action.message, field: action.field, code: action.code } };
+
+    case "opSuccess":
+      return { ...state, loading: false, error: null, events: action.events };
 
     default: {
       const _exhaustive: never = action;
@@ -123,73 +166,76 @@ function uiReducer(state: UiState, action: UiAction): UiState {
 }
 
 export function useCalendar() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [ui, dispatch] = useReducer(uiReducer, undefined, initUiState);
+  const [state, dispatch] = useReducer(reducer, undefined, initState);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, Event[]>();
-    for (const e of events) {
+    for (const e of state.events) {
       const day = e.start.slice(0, 10);
       const arr = map.get(day) ?? [];
       arr.push(e);
       map.set(day, arr);
     }
-
     for (const [day, arr] of map.entries()) {
       arr.sort((a, b) => a.start.localeCompare(b.start));
       map.set(day, arr);
     }
-
     return map;
-  }, [events]);
+  }, [state.events]);
 
   const selectedEvents = useMemo(() => {
-    const arr = eventsByDay.get(ui.selectedDay) ?? [];
+    const arr = eventsByDay.get(state.selectedDay) ?? [];
     return arr;
-  }, [eventsByDay, ui.selectedDay]);
+  }, [eventsByDay, state.selectedDay]);
 
   async function refresh() {
-    dispatch({ type: "clearError" });
+    dispatch({ type: "opStart", op: "refresh" });
     try {
-      setEvents(await listEvents());
+      const events = await listEvents();
+      dispatch({ type: "opSuccess", op: "refresh", events });
     } catch (e) {
-      dispatch({ type: "setError", error: String(e) });
+      dispatch({ type: "opError", op: "refresh", message: String(e) });
     }
   }
 
   async function del(id: number) {
-    dispatch({ type: "clearError" });
+    dispatch({ type: "opStart", op: "delete" });
     try {
-      setEvents(await deleteEvent({ id }));
+      const events = await deleteEvent({ id });
+      dispatch({ type: "opSuccess", op: "delete", events });
     } catch (e) {
-      dispatch({ type: "setError", error: String(e) });
+      dispatch({ type: "opError", op: "delete", message: String(e) });
     }
   }
 
   async function save() {
-    dispatch({ type: "clearError" });
+    dispatch({ type: "opStart", op: "save" });
     try {
-      if (ui.editingId === null) {
-        setEvents(await addEvent({ 
-          title: ui.title,
-          start: ui.start,
-          end: ui.end 
-        }));
-        dispatch({ type: "afterSaveSuccess" });
-        return ;
+      let events: Event[];
+
+      if (state.editingId === null) {
+        events = await addEvent({ 
+          title: state.title,
+          start: state.start,
+          end: state.end 
+        });
+      } else {
+        events = await updateEvent({
+          id: state.editingId,
+          title: state.title,
+          start: state.start,
+          end: state.end
+        });
       }
-
-      setEvents(await updateEvent({
-        id: ui.editingId,
-        title: ui.title,
-        start: ui.start,
-        end: ui.end
-      }));
-      setEditingId(null);
+      dispatch({ type: "opSuccess", op: "save", events });
       dispatch({ type: "afterSaveSuccess" });
-
     } catch (e) {
-      dispatch({ type: "setError", error: String(e) });
+      const ve = parseValidationError(e);
+      if (ve) {
+        dispatch({ type: "opError", op: "save", message: ve.message, field: ve.field, code: ve.code });
+      } else {
+        dispatch({ type: "opError", op: "save", message: String(e) });
+      }
     }
   }
 
@@ -200,17 +246,8 @@ export function useCalendar() {
   return {
     // state
     state: {
-      events,
-      viewMonth: ui.viewMonth,
-      selectedDay: ui.selectedDay,
+      ...state,
       selectedEvents,
-
-      title: ui.title,
-      start: ui.start,
-      end: ui.end,
-
-      editingId: ui.editingId,
-      error: ui.error,
     },
 
     actions: {
@@ -220,7 +257,7 @@ export function useCalendar() {
       setTitle: (s: string) => dispatch({ type: "setTitle", value: s}),
       setStart: (s: string) => dispatch({ type: "setStart", value: s}),
       setEnd: (s: string) => dispatch({ type: "setEnd", value: s }),
-      beginEdit: (v: Event) => dispatch({ type: "beginEdit", value: v }),
+      beginEdit: (v: Event) => dispatch({ type: "beginEdit", event: v }),
       cancelEdit: () => dispatch({ type: "cancelEdit" }),
 
       refresh,

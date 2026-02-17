@@ -7,6 +7,7 @@ export function SidePanel(props: {
   title: string;
   start: string;
   end: string;
+  loading: boolean;
   editingId: number | null;
   error: string | null;
 
@@ -26,6 +27,7 @@ export function SidePanel(props: {
     title,
     start,
     end,
+    loading,
     editingId,
     error,
     onChangeTitle,
@@ -39,6 +41,9 @@ export function SidePanel(props: {
   } = props;
 
   const isValidRange = start !== "" && end !== "" && start <= end;
+  const titleError = error?.op === "save" && error?.field === "title";
+  const startError = error?.op === "save" && error?.field === "start";
+  const endError = error?.op === "save" && error?.field === "end";
 
   return (
     <div 
@@ -77,10 +82,10 @@ export function SidePanel(props: {
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => onBeginEdit(e)} style={{ justifySelf: "start" }}>
+                <button onClick={() => onBeginEdit(e)} style={{ justifySelf: "start" }} disabled={loading}>
                   Edit
                 </button>
-                <button onClick={() => onDelete(e.id)} style={{ justifySelf: "start" }}>
+                <button onClick={() => onDelete(e.id)} style={{ justifySelf: "start" }} disabled={loading}>
                   Delete
                 </button>
               </div>
@@ -95,12 +100,25 @@ export function SidePanel(props: {
       <div style={{ display: "grid", gap: 8 }}>
         {error && (
           <div style={{ borderr: "1px solid #f3c", padding: 8, borderRadius: 8, marginBottom: 8 }}>
-            {error}
+            <b>{error.op}</b>: {error.message}
           </div>
         )}
         <label>
           Title
-          <input value={title} onChange={(e) => onChangeTitle(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+          <input 
+            value={title}
+            onChange={(e) => onChangeTitle(e.target.value)}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              border: titleError ? "2px solid crimson" : "1px solid #ccc",
+              borderRadius: 6,
+              padding: "6px 8px"
+            }}
+          />
+          {titleError && (
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{error?.message}</div>
+          )}
         </label>
         <label>
           Start
@@ -108,8 +126,17 @@ export function SidePanel(props: {
             type="datetime-local"
             value={start}
             onChange={(e) => onChangeStart(e.target.value)}
-            style={{ width: "100%", boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              border: startError ? "2px solid crimson" : "1px solid #ccc",
+              borderRadius: 6,
+              padding: "6px 8px"
+            }}
           />
+          {startError && (
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{error?.message}</div>
+          )}
         </label>
         <label>
           End
@@ -117,22 +144,29 @@ export function SidePanel(props: {
             type="datetime-local"
             value={end}
             onChange={(e) => onChangeEnd(e.target.value)}
-            style={{ width: "100%", boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              border: endError ? "2px solid crimson" : "1px solid #ccc",
+              borderRadius: 6,
+              padding: "6px 8px"
+            }}
           />
+          {endError && (
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{error?.message}</div>
+          )}
         </label>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onSave} disabled={!title.trim() || !isValidRange}>
+          <button onClick={onSave} disabled={loading /* || !title.trim() || !isValidRange */}>
             {editingId === null ? "Add" : "Save"}
           </button>
 
           {editingId !== null && (
-            <button onClick={onCancelEdit}>
-              Cancel
-            </button>
+            <button onClick={onCancelEdit} disabled={loading}>Cancel</button>
           )}
 
-          <button onClick={onRefresh}>Refresh</button>
+          <button onClick={onRefresh} disabled={loading}>Refresh</button>
         </div>
       </div>
     </div>

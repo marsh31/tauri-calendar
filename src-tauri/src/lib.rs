@@ -25,6 +25,21 @@ struct AppState {
     next_id: Mutex<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ValidationError {
+    code: String,          //
+    field: Option<String>, //
+    message: String,       //
+}
+
+fn v_err(code: &str, field: Option<&str>, message: &str) -> ValidationError {
+    ValidationError {
+        code: code.to_string(),
+        field: field.map(|s| s.to_string()),
+        message: message.to_string(),
+    }
+}
+
 #[tauri::command]
 fn list_events(state: tauri::State<AppState>) -> Vec<Event> {
     state.events.lock().unwrap().clone()
@@ -44,18 +59,34 @@ fn load_from_file(file_path: &PathBuf) -> Persisted {
     })
 }
 
-fn validate_event_fields(title: &String, start: &String, end: &String) -> Result<(), String> {
+fn validate_event_fields(
+    title: &String,
+    start: &String,
+    end: &String,
+) -> Result<(), ValidationError> {
     let title = title.trim();
     if title.is_empty() {
-        return Err("title must not be empty".into());
+        return Err(v_err("required", Some("title"), "title is required"));
     }
 
-    if start.len() < 16 || end.len() < 16 {
-        return Err("start/end format must be like YYYY-MM-DDTHH:mm".into());
+    if start.len() < 16 {
+        return Err(v_err(
+            "format",
+            Some("start"),
+            "Start format must be like YYYY-MM-DDTHH:mm",
+        ));
+    }
+
+    if end.len() < 16 {
+        return Err(v_err(
+            "format",
+            Some("end"),
+            "End format must be like YYYY-MM-DDTHH:mm",
+        ));
     }
 
     if start > end {
-        return Err("end must be after start".into());
+        return Err(v_err("range", Some("end"), "End must be after Start"));
     }
 
     Ok(())
@@ -78,7 +109,9 @@ fn add_event(
     end: String,
     state: tauri::State<AppState>,
 ) -> Result<Vec<Event>, String> {
-    validate_event_fields(&title, &start, &end)?;
+    if let Err(ve) = validate_event_fields(&title, &start, &end) {
+        return Err(serde_json::to_string(&ve).unwrap());
+    }
 
     let mut events = state.events.lock().unwrap();
     let mut next_id = state.next_id.lock().unwrap();
@@ -123,7 +156,10 @@ fn update_event(
     end: String,
     state: tauri::State<AppState>,
 ) -> Result<Vec<Event>, String> {
-    validate_event_fields(&title, &start, &end)?;
+    if let Err(ve) = validate_event_fields(&title, &start, &end) {
+        return Err(serde_json::to_string(&ve).unwrap());
+    }
+
     let mut events = state.events.lock().unwrap();
     let next_id = *state.next_id.lock().unwrap();
 
